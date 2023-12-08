@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 import IPython.display as ipd
 import librosa
 import librosa.display
+import scipy.stats
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+## TODO NEED TO HALF ANALYZE TIME
 
 # Allowed audio file extensions
 ALLOWED_EXTENSIONS = {"mp3", "wav"}
-
 
 # Function to check if a file has an allowed extension
 def allowed_file(filename):
@@ -47,15 +48,28 @@ def analyze_audio():
                 file,
                 sr=None,
                 mono=False,
-                duration=60,
-                offset=0.0,
+                duration=45,
+                offset=0,
                 res_type="kaiser_best",
                 dtype=np.float32,
             )
             y_mono = librosa.to_mono(y)
 
-        # Analyze tempo
-        tempo, _ = librosa.beat.beat_track(y=y_mono, sr=sr)
+        # # Analyze tempo
+        # tempo, _ = librosa.beat.beat_track(y=y_mono, sr=sr)
+
+        # Apply Harmonic/Percussive separation
+        y_harmonic, y_percussive = librosa.effects.hpss(y_mono)
+
+        # Calculate the onset strength (more robust for some types of music)
+        onset_env = librosa.onset.onset_strength(y=y_percussive, sr=sr)
+
+        # Analyze tempo using the percussive component and onset strength
+        # tempo, _ = librosa.beat.beat_track(y=y_percussive, sr=sr, onset_envelope=onset_env, hop_length=512)
+        static_tempo = librosa.feature.tempo(onset_envelope=onset_env, sr=sr)
+        
+        #Round tempo to nearest whole number
+        rounded_tempo = round(static_tempo[0])
 
         # Create an instance of Tonal_Fragment
         tonal_fragment = Tonal_Fragment(y_mono, sr)
@@ -69,7 +83,7 @@ def analyze_audio():
 
         # Return the analysis results
         result = {
-            "tempo": tempo,
+            "tempo": rounded_tempo,
             "key": converted_key,  # Use the converted key
         }
 
