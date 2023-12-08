@@ -1,9 +1,29 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { CircularProgress } from '@mui/material';
 
 const AudioUpload = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [results, setResults] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [startTime, setStartTime] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(null);
+
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      setStartTime(Date.now());
+      interval = setInterval(() => {
+        setElapsedTime(((Date.now() - startTime) / 1000).toFixed(2)); // Update every second
+      }, 1000);
+    } else if (startTime) {
+      clearInterval(interval);
+      setElapsedTime(((Date.now() - startTime) / 1000).toFixed(2));
+      setStartTime(null); // Reset start time
+    }
+
+    return () => clearInterval(interval); // Clean up interval on unmount
+  }, [loading, startTime]);
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -26,7 +46,7 @@ const AudioUpload = () => {
         alert('Please select a file to upload.');
         return;
       }
-
+      setLoading(true);
       const formData = new FormData();
       formData.append('file', selectedFile);
 
@@ -45,6 +65,7 @@ const AudioUpload = () => {
     } catch (error) {
       console.error('Error:', error);
     }
+    setLoading(false);
   };
   const handleRemove = () => {
     setSelectedFile(null);
@@ -57,7 +78,7 @@ const AudioUpload = () => {
         onDragOver={handleDragOver}
         style={{ border: '1px dashed #ccc', padding: '20px', textAlign: 'center' }}
       >
-{selectedFile ? (
+        {selectedFile ? (
           <div>
             <p>Selected File: {selectedFile.name}</p>
             <button onClick={handleRemove}>Remove</button>
@@ -67,10 +88,16 @@ const AudioUpload = () => {
         )}      </div>
       <input type="file" onChange={handleFileChange} />
       <button onClick={handleUpload}>Analyze</button>
-      {results && (
+      {loading ? (
+        <>
+          <CircularProgress />
+          <p>Loading... {elapsedTime} seconds</p>
+        </>
+      ) : (
         <div>
           {results.key}
           {results.tempo}
+          {elapsedTime && <p>Time taken: {elapsedTime} seconds</p>}
         </div>
       )}
     </div>
